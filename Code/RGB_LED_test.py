@@ -31,7 +31,7 @@ off = (0, 0, 0)             # Aus
 def led_test():
     print("LED Test wird ausgeführt.")
 
-    for i in range(2):
+    for i in range(10):
         t=0.5
         set_color(*red)          # Rot
         sleep(t)
