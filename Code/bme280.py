@@ -94,3 +94,6 @@ class BME280:
         H = h >> 12
 
         return T, P, H
+        
+        #print ('aktuelle Temperatur: ')
+        
