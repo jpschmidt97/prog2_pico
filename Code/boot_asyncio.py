@@ -3,7 +3,7 @@
 import network
 from utime import sleep
 
-sleep(15) #Warten um Ausgabe in Konsole zu sehen
+sleep(5) #Warten um Ausgabe in Konsole zu sehen
 
 
 def connect_wifi_home(): #Funktion zur Verbindung mit dem WLAN zu Hause

@@ -1,7 +1,9 @@
-#Programm zur Ansteuerung einer SMD LED (GND,R;G;B - Pin)
+#LED.py - Programm zur Ansteuerung der SMD RGB LED - (GND,R;G;B - Pin)
+
+#-----------------------------------------------------------------------------
+
 from machine import Pin, PWM
 from utime import sleep
-import _thread #ermöglicht das Erstellen eines parallelen Threads
 
 
 # Pin festlegen und definiert (je nach dem wo angeschlossen)
@@ -31,8 +33,8 @@ off = (0, 0, 0)             # Aus
 def led_test():
     print("LED Test wird ausgeführt.")
 
-    for i in range(10):
-        t=0.5
+    for i in range(2):
+        t=0.3
         set_color(*red)          # Rot
         sleep(t)
         set_color(*yellow)       # Gelb
@@ -47,7 +49,5 @@ def led_test():
     print("LED Test beendet.")
     
 
-# Starten des LED-Tests in einem neuen Thread
-_thread.start_new_thread(led_test, ())
 
 

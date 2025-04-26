@@ -1,5 +1,6 @@
+#bme280.py
 # Original Source: https://github.com/robert-hh/BME280
-# Minimal angepasst für gängigen MicroPython-Einsatz
+# Minimal angepasst für genutzte MicroPython-Version
 
 import time
 from machine import I2C
@@ -21,24 +22,24 @@ class BME280:
 
     def _load_calibration(self):
         calib = self._read(0x88, 24)
-        self.dig_T1 = int.from_bytes(calib[0:2], 'little')
-        self.dig_T2 = int.from_bytes(calib[2:4], 'little', signed=True)
-        self.dig_T3 = int.from_bytes(calib[4:6], 'little', signed=True)
+        self.dig_T1 = int.from_bytes(calib[0:2], 'little', False)
+        self.dig_T2 = int.from_bytes(calib[2:4], 'little', True)
+        self.dig_T3 = int.from_bytes(calib[4:6], 'little', True)
 
-        self.dig_P1 = int.from_bytes(calib[6:8], 'little')
-        self.dig_P2 = int.from_bytes(calib[8:10], 'little', signed=True)
-        self.dig_P3 = int.from_bytes(calib[10:12], 'little', signed=True)
-        self.dig_P4 = int.from_bytes(calib[12:14], 'little', signed=True)
-        self.dig_P5 = int.from_bytes(calib[14:16], 'little', signed=True)
-        self.dig_P6 = int.from_bytes(calib[16:18], 'little', signed=True)
-        self.dig_P7 = int.from_bytes(calib[18:20], 'little', signed=True)
-        self.dig_P8 = int.from_bytes(calib[20:22], 'little', signed=True)
-        self.dig_P9 = int.from_bytes(calib[22:24], 'little', signed=True)
+        self.dig_P1 = int.from_bytes(calib[6:8], 'little', False)
+        self.dig_P2 = int.from_bytes(calib[8:10], 'little', True)
+        self.dig_P3 = int.from_bytes(calib[10:12], 'little', True)
+        self.dig_P4 = int.from_bytes(calib[12:14], 'little', True)
+        self.dig_P5 = int.from_bytes(calib[14:16], 'little', True)
+        self.dig_P6 = int.from_bytes(calib[16:18], 'little', True)
+        self.dig_P7 = int.from_bytes(calib[18:20], 'little', True)
+        self.dig_P8 = int.from_bytes(calib[20:22], 'little', True)
+        self.dig_P9 = int.from_bytes(calib[22:24], 'little', True)
 
         calib = self._read(0xA1, 1)
         self.dig_H1 = calib[0]
         calib = self._read(0xE1, 7)
-        self.dig_H2 = int.from_bytes(calib[0:2], 'little', signed=True)
+        self.dig_H2 = int.from_bytes(calib[0:2], 'little', True)
         self.dig_H3 = calib[2]
         e4 = calib[3]
         e5 = calib[4]
@@ -94,6 +95,3 @@ class BME280:
         H = h >> 12
 
         return T, P, H
-        
-        #print ('aktuelle Temperatur: ')
-        
