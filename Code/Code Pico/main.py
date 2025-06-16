@@ -6,7 +6,9 @@ from lib.temp_messung import bme_messure
 from lib.LED import led_test
 from lib.oled import oled_test, oled
 from lib.datalogger import init_memory, save_messure
-
+from lib.mqtt_picow import mqtt_connect, send_mqtt_data
+import ntptime
+import time
 
 #WLAN Definition
 wlan = network.WLAN(network.STA_IF)
@@ -23,6 +25,7 @@ sensor_data = {
     "hum": 0.0
 }
 
+
 async def startup_tests():
     #Führt die Hardware-Tests nacheinander aus:
     #- LED-Test (blockierend)
@@ -31,6 +34,22 @@ async def startup_tests():
     led_test()       # blockiert, bis der LED-Test fertig ist
     oled_test()      # blockiert, bis der OLED-Test fertig ist
     await asyncio.sleep(0)  # einmal zum Scheduler zurückgeben
+
+
+async def sync_time():
+    # Warte, bis WLAN verbunden ist
+    while not wlan.isconnected():
+        await asyncio.sleep(0.5)
+    try:
+        ntptime.settime()
+        print("Uhrzeit synchronisiert.")
+    except:
+        print("Zeit konnte nicht synchronisiert werden.")
+
+def get_timestamp(offset_hours = 2):
+    t = time.localtime(time.time() + offset_hours * 3600)
+    return f"{t[2]:02d}.{t[1]:02d}.{t[0]:04d} {t[3]:02d}:{t[4]:02d}:{t[5]:02d}"
+
 
 async def sensor_task():
     #Liest kontinuierlich Sensordaten, speichert sie lokal und druckt sie in die Konsole.
@@ -41,9 +60,15 @@ async def sensor_task():
         sensor_data["temp"] = t
         sensor_data["press"] = p
         sensor_data["hum"] = h
-        print(f"Temp: {t:.2f} °C, Druck: {p:.2f} hPa, Feuchte: {h:.2f} %")
+        timestamp = get_timestamp()
+        print(f"[{timestamp}] Temp: {t:.2f} °C, Druck: {p:.2f} hPa, Feuchte: {h:.2f} %")
         #save_messure(t, p, h)    #die aktuellen Messwerte werden in einer .csv Datei gespeichert
+        if wlan.isconnected():    #WLAN-Verbindung prüfen
+            send_mqtt_data(timestamp, t, p, h)
+        else:
+            print("Kein WLAN - MQTT wird nicht gesendet")
         await asyncio.sleep(MESS_INTERVALL)
+
 
 async def oled_task():
     #Aktualisiert das OLED-Display mit den zuletzt gelesenen Sensordaten
@@ -62,9 +87,16 @@ async def oled_task():
         oled.show()
         await asyncio.sleep(OLED_REFRESH)
 
+
 async def main():
     # Startup-Initialisierung
     await startup_tests()
+
+    #akteulle Zeit
+    await sync_time()
+    
+    #MQTT-Verbindung einmal herstellen
+    mqtt_connect()
 
     # Tasks parallel starten
     task1 = asyncio.create_task(sensor_task())
@@ -75,3 +107,4 @@ async def main():
 
 # uasyncio-Event-Loop starten
 asyncio.run(main()) 
+
