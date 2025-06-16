@@ -1,126 +1,97 @@
-#main.py - wird autom. ausgeführt, nachdem die boot.py vollständig ausgeführt wurde
+# main.py - uasyncio Version
 
-#Unterprogramme werden im Ordner /lib/ abgelegt und von dort aufgerufen
-#Aufrufen von Programmen aus /lib/ mit dem Befehl: import lib.ProgrammName
-    
-#-------------------------------------------------------------------------------------------------      
-
-print("main.py wurde gestartet.")
-
-import machine
-from utime import sleep
-import _thread  # Bibliothek für Multitasking
-
-
-from lib.temp_messung import bme_messure    #Import Funktion bme_messure
-from lib.LED import led_test    #Import LED Test Funktion
-from lib.oled import oled_test, oled_update_thread
-
-#kurze Hardware-Tests durchlaufen lassen:
-_thread.start_new_thread(led_test, ())    # Starten des LED-Tests in einem neuen Thread
-oled_test()    #startet den OLED Test - dadurch warten bis dieser durchgelaufen ist
-
-
-#Stop-Funktion für die main.py:
-running = True    #setzt eine Variable auf True - soll später als stop Möglichkeit genutzt werden
-
-def stop_thread():
-    global running
-    while running:
-        befehl = input()
-        if befehl.strip().lower() == "stop":
-            print("Stop-Befehl erhalten. Beende das Programm...")
-            running = False
-
-_thread.start_new_thread(stop_thread, ())
-
-
-
-
-
-
-
-
-#BME Sensor Daten
-
-#Speichern der aktuellen Messwerte in folgende Variablen
-temp_c = 0
-pressure_hpa = 0
-humidity_percent = 0
-
-#Abruf der Sensordaten in vorgegebenen Intervall
-mess_int = 5   #Messung der Werte alle int Sekunden
-
-def messure_thread(): #Funktion liest Werte aus der Mess-Funktion bme_messure() aus und gibt diese in der Konsole aus
-    global temp_c, pressure_hpa, humidity_percent    #in globale Variablen schreiben
-    while True:
-        #Werte aus der Funktion auslesen
-        temp_c, pressure_hpa, humidity_percent = bme_messure()
-        
-        #Ausgabe in Konsole - später evtl. über OLED
-        print(f"Temperatur: {temp_c:.2f} °C")
-        print(f"Luftdruck:  {pressure_hpa:.2f} hPa")
-        print(f"Feuchte:    {humidity_percent:.2f} %")
-        print("-" * 30)    
-        
-        sleep(mess_int)   # mess_int Sekunden warten
-        
-  
-
-#_thread.start_new_thread(messure_thread, ())    #neuen Thread mit Endlosschleife starten um permanente Messung durchzuführen
-
-
-
-
-
-
-
-#OLED Display - Ausgabe aktueller Messwerte/Sensordaten
-
-_thread.start_new_thread(oled_update_thread, (lambda: (temp_c, pressure_hpa, humidity_percent),))    #Thread mit Definition der zu Übergebenden Werte
-
-
-
-
-
-
-#Speicherung der Messdaten lokal auf dem Pico W:
+import network
+import uasyncio as asyncio
+from lib.temp_messung import bme_messure
+from lib.LED import led_test
+from lib.oled import oled_test, oled
 from lib.datalogger import init_memory, save_messure
+from lib.mqtt_picow import send_mqtt_data
+import ntptime
+import time
 
-# Initialisierung
-init_memory()
+#WLAN Definition
+wlan = network.WLAN(network.STA_IF)
+wlan.active(True)
 
-def messure_thread_local(): #Funktion liest Werte aus der Mess-Funktion bme_messure() aus und gibt diese in der Konsole aus
-    global temp_c, pressure_hpa, humidity_percent    #in globale Variablen schreiben
+# Intervall-Einstellungen
+MESS_INTERVALL = 5    # Sekunden zwischen den Messungen
+OLED_REFRESH = 5      # Sekunden zwischen OLED-Updates
+
+# Shared State für Sensordaten
+sensor_data = {
+    "temp": 0.0,
+    "press": 0.0,
+    "hum": 0.0
+}
+
+async def startup_tests():
+    #Führt die Hardware-Tests nacheinander aus:
+    #- LED-Test (blockierend)
+    #- OLED-Test (blockierend)
+    
+    led_test()       # blockiert, bis der LED-Test fertig ist
+    oled_test()      # blockiert, bis der OLED-Test fertig ist
+    await asyncio.sleep(0)  # einmal zum Scheduler zurückgeben
+
+async def sync_time():
+    # Warte, bis WLAN verbunden ist
+    while not wlan.isconnected():
+        await asyncio.sleep(0.5)
+    try:
+        ntptime.settime()
+        print("Uhrzeit synchronisiert.")
+    except:
+        print("Zeit konnte nicht synchronisiert werden.")
+
+def get_timestamp():
+    t = time.localtime()
+    return f"{t[2]:02d}.{t[1]:02d}.{t[0]:04d} {t[3]:02d}:{t[4]:02d}:{t[5]:02d}"
+
+async def sensor_task():
+    #Liest kontinuierlich Sensordaten, speichert sie lokal und druckt sie in die Konsole.
+    
+    init_memory()    #der Sensor wird einmalig initialisiert
     while True:
-        #Werte aus der Funktion auslesen
-        temp_c, pressure_hpa, humidity_percent = bme_messure()
+        t, p, h = bme_messure()
+        sensor_data["temp"] = t
+        sensor_data["press"] = p
+        sensor_data["hum"] = h
+        print(f"[{timestamp}] Temp: {t:.2f} °C, Druck: {p:.2f} hPa, Feuchte: {h:.2f} %")
+        #save_messure(t, p, h)    #die aktuellen Messwerte werden in einer .csv Datei gespeichert
+        send_mqtt_data(timestamp, t, p, h)
+        await asyncio.sleep(MESS_INTERVALL)
+
+async def oled_task():
+    #Aktualisiert das OLED-Display mit den zuletzt gelesenen Sensordaten
+    
+    while True:
+        oled.fill(0)
         
-        save_messure(temp_c, pressure_hpa, humidity_percent) #Speicherung der Messwerte   
+        if wlan.isconnected():
+            oled.text("WLAN verbunden", 0, 0)
+        else:
+            oled.text("KEIN WLAN", 0, 0)
         
-        sleep(mess_int)   # mess_int Sekunden warten
+        oled.text(f"Temp: {sensor_data['temp']:.1f} C", 0, 16)
+        oled.text(f"Druck: {sensor_data['press']:.0f} hPa", 0, 32)
+        oled.text(f"Feuchte: {sensor_data['hum']:.1f} %", 0, 48)
+        oled.show()
+        await asyncio.sleep(OLED_REFRESH)
 
+async def main():
+    # Startup-Initialisierung
+    await startup_tests()
 
+    #akteulle Zeit
+    await sync_time()
 
+    # Tasks parallel starten
+    task1 = asyncio.create_task(sensor_task())
+    task2 = asyncio.create_task(oled_task())
 
-_thread.start_new_thread(messure_thread_local, ())    #neuen Thread mit Endlosschleife starten um permanente Messung durchzuführen
-      
+    # Event-Loop läuft, bis du manuell mit CTRL+C abbrichst
+    await asyncio.gather(task1, task2)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-while running: #main.py läuft solange, bis ein "stop" in die Konsole eingegeben wird
-    time.sleep(1)
-
-print("Programm wurde erfolgreich beendet.")
+# uasyncio-Event-Loop starten
+asyncio.run(main()) 

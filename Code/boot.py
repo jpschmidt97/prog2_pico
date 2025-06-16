@@ -1,52 +1,39 @@
-#boot.py - wird als aller erstes beim Start des Pico W ausgeführt
+# boot.py – Wird beim Start des Pico W als Erstes ausgeführt
 
 import network
 from utime import sleep
 
-sleep(15) #Warten um Ausgabe in Konsole zu sehen
+print("Pico W wurde gestartet, boot.py wird ausgeführt - 10 Sekunden Wartezeit")
+sleep(10)  # Warten, um bei Start mögliche Konsolenausgaben zu sehen bzw. Code zu löschen
 
-
-def connect_wifi_home(): #Funktion zur Verbindung mit dem WLAN zu Hause
-    print('Verbindung wird hergestellt...')
-    ssid = "Vodafone-B3C7"
-    password = "XVqMLiVMfVe763RP"
+def connect_wifi(ssid, password):
+    print(f"Verbindung zu WLAN '{ssid}' wird hergestellt...")
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
+
     if not wlan.isconnected():
         wlan.connect(ssid, password)
         timeout = 15
         while not wlan.isconnected() and timeout > 0:
             sleep(1)
             timeout -= 1
+            print(f"  ...warte ({15 - timeout}s)")
+
     if wlan.isconnected():
-        print('Verbunden mit:', ssid)
-        print('IP-Adresse:', wlan.ifconfig()[0])
+        print("Verbunden mit:", ssid)
+        print("IP-Adresse:", wlan.ifconfig()[0])
     else:
-        print('Verbindung fehlgeschlagen.')
-    
+        print("Verbindung fehlgeschlagen, nach 15 Sekunden abgebrochen.")
+        wlan.disconnect()  # Aktiv trennen, damit keine weitere Verbindung versucht wird
+        wlan.active(False) # WLAN-Modul deaktivieren
+        
+try:
+    # Entweder Heimnetz oder Hotspot
+    #connect_wifi("Vodafone-B3C7", "XVqMLiVMfVe763RP")
+    connect_wifi("iPhone_Pascale", "qwertzuiop")
 
-def connect_wifi_iphone(): #Funktion zur Verbindung mit dem WLAN zu Hause
-    print('Verbindung wird hergestellt...')
-    ssid = "iPhone_Pascale"
-    password = "qwertzuiop"
-    wlan = network.WLAN(network.STA_IF)
-    wlan.active(True)
-    if not wlan.isconnected():
-        wlan.connect(ssid, password)
-        timeout = 15
-        while not wlan.isconnected() and timeout > 0:
-            sleep(1)
-            timeout -= 1
-    if wlan.isconnected():
-        print('Verbunden mit:', ssid)
-        print('IP-Adresse:', wlan.ifconfig()[0])
-    else:
-        print('Verbindung fehlgeschlagen.')
-    
-
-
-#connect_wifi_home()  # Mit WLAN zu Hause verbinden
-    
-#connect_wifi_iphone()  # Mit mobilem HotSpot auf iPhone verbinden
+except Exception as e:
+    print("Fehler beim Aufbau der WLAN-Verbindung:", e)
+    sleep(10)  # Zeit zur Fehlersuche
 
 print("boot.py wurde erfolgreich ausgeführt.")
