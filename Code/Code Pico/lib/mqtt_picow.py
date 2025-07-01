@@ -48,31 +48,7 @@ def send_mqtt_data(timestamp, temp, press, hum):
             print("MQTT Senden fehlgeschlagen:", e)
 
 
-
-
-#from network import WLAN, STA_IF
-#from utime import sleep_ms
-#from umqtt_simple import MQTTClient
-#import json
-#
-#
-#MQTT_BROKER = "172.20.10.2"  # IP deines Laptops
-#CLIENT_ID = "pico"
-#TOPIC = b"sensordaten_picow"
-#
-#def send_mqtt_data(timestamp, temp, press, hum):
-#    client = MQTTClient(CLIENT_ID, MQTT_BROKER)
-#    client.connect()
-#    payload = {
-#        "timestamp": timestamp,
-#        "temp": temp,
-#        "press": press,
-#        "hum": hum
-#    }
-#    msg = json.dumps(payload)
-#    client.publish(TOPIC, msg)
-#    client.disconnect()
-
-
-
-
+# Getter-Funktion für Zugriff in main.py – wichtig, da client erst nach mqtt_connect() gültig ist
+def get_mqtt_client():
+    global client
+    return client

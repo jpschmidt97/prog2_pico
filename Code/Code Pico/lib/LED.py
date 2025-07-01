@@ -4,6 +4,7 @@
 
 from machine import Pin, PWM
 from utime import sleep
+import uasyncio as asyncio
 
 
 # Pin festlegen und definiert (je nach dem wo angeschlossen)
@@ -50,4 +51,38 @@ def led_test():
     
 
 
+def show_ventilation_recommendation(temp, hum):
+    """
+    LED permanent auf Rot/Gelb/Grün je nach Sensorwert:
+    - Rot: Feuchte > 60% oder Temp > 28°C
+    - Gelb: Feuchte 50-60% oder Temp 25-28°C
+    - Grün: Feuchte < 50% und Temp < 25°C
+    """
+    if hum > 60 or temp > 28:
+        set_color(*red)
+    elif 50 < hum <= 60 or 25 <= temp <= 28:
+        set_color(*yellow)
+    else:
+        set_color(*green)
+
+async def ventilation_task(get_sensor_data_callback):
+    """
+    Async-Task:
+    - Alle 5 Sekunden: LED permanent entsprechend Sensorwerten aktualisieren
+    - Alle 60 Minuten: Rote LED für 5 Minuten als Lüftungserinnerung
+    """
+    while True:
+        # 60-Minuten Zyklus
+        for _ in range(720):  # 720 * 5s = 3600s = 60 Minuten
+            temp, hum = get_sensor_data_callback()
+            show_ventilation_recommendation(temp, hum)
+            await asyncio.sleep(5)
+
+        # 5 Minuten rote Erinnerung
+        print("Lüftungserinnerung: Bitte lüften! (rote LED 5 min)")
+        for _ in range(60):  # 60 * 5s = 300s = 5 Minuten
+            set_color(*red)
+            await asyncio.sleep(5)
+
+        # Danach geht es wieder in die permanente Anzeige zurück (nächster Loop)
 
